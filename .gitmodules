@@ -1,0 +1,6 @@
+[submodule "jni/libutp"]
+	path = jni/libutp
+	url = git@github.com:alessandro40/libutp
+[submodule "jni/libevent"]
+	path = jni/libevent
+	url = git@github.com:alessandro40/libevent
