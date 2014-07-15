@@ -4,7 +4,7 @@
 #include "utp_socket.h"
 
 
-#define PING_INTERVAL 100000
+#define PING_INTERVAL 50000
 #define TIMEO_CHECK_INTERVAL 500000
 //#ifdef DEBUG_UTP
 #define debug(...) warnx(__VA_ARGS__)
@@ -129,7 +129,6 @@ Context_Wrapper::Context_Wrapper(int version, struct sockaddr_storage
         utp_context_set_userdata(this->context_u, (void *) this); /* Or &this? */
         utp_set_callback(this->context_u, UTP_ON_ACCEPT, &this->_utp_accept);
         utp_set_callback(this->context_u, UTP_ON_ERROR, &this->_utp_error);
-	utp_set_callback(this->context_u, UTP_LOG, &this->_utp_log);
         utp_set_callback(this->context_u, UTP_SENDTO, &this->_utp_sendto);
         utp_set_callback(this->context_u, UTP_ON_STATE_CHANGE,
             &this->_utp_state_change);
@@ -244,17 +243,15 @@ Context_Wrapper::_utp_write(void)
 	debug("_utp_write");
 	ssize_t result = 0;
 	if (this->is_writable) {
-		msg_t msg;
-	//	buf = (msg_t *) malloc(sizeof(msg_t));
-	//	if (buf == NULL)
-	//		err(1, "malloc() failed");
-		gettimeofday(&msg.time, NULL);
-		msg.seq = this->seq;
-		this->seq++;
+		void *buf;
+		buf = malloc(sizeof(struct timeval));
+		if (buf == NULL)
+			err(1, "malloc() failed");
+		gettimeofday((struct timeval *) buf, NULL);	
 		/* TODO: where to write? */
 		if (this->socket_tmp[0] != NULL)
-			result = utp_write(this->socket_tmp[0], (void *)  &msg,
-			    sizeof(msg_t)); /*XXX*/
+			result = utp_write(this->socket_tmp[0], buf,
+			    sizeof(struct timeval)); /*XXX*/
 	}
 	else debug("Socket non writable");
 	return (result);
@@ -293,27 +290,17 @@ Context_Wrapper::_utp_read(utp_callback_arguments *args)
 	const unsigned char *p;
 	ssize_t len, left;
 	struct timeval *start_time_p, interval, end_time;
-	msg_t *msg;
-	Context_Wrapper *context_w = (Context_Wrapper *)
-	    utp_context_get_userdata(args->context);
 
 	left = args->len;
 	p = args->buf;
 	
 	debug("utp_read: len = %d", args->len);
 	gettimeofday(&end_time, NULL);
-
-	msg = (msg_t *) args->buf;
-	debug("Prev. Seq: %d", context_w->last_seq);
-	debug("Seq: %d", msg->seq);
-	if (context_w->last_seq != msg->seq - 1)
-		debug("Swap");
-	context_w->last_seq = msg->seq;
-//	start_time_p = (struct timeval *) args->buf;
-// 	timersub(&end_time, start_time_p, &interval);
-//	debug("sec: %ld usec: %ld", interval.tv_sec, interval.tv_usec);
-//	debug("RTT: %ld",  /*1000000000 * interval.tv_sec +*/
-//	    interval.tv_usec);
+	start_time_p = (struct timeval *) args->buf;
+ 	timersub(&end_time, start_time_p, &interval);
+	debug("sec: %ld usec: %ld", interval.tv_sec, interval.tv_usec);
+	debug("RTT: %ld",  /*1000000000 * interval.tv_sec +*/
+	    interval.tv_usec);
 //	while(left) {
 //		len = write(STDOUT_FILENO, p, left);
 //		left -= len;
@@ -334,16 +321,6 @@ Context_Wrapper::_utp_error(utp_callback_arguments *args)
 
 	return (0);
 }
-
-uint64
-Context_Wrapper::_utp_log(utp_callback_arguments *args)
-{
-	debug("utp_log: %s\n", args->buf);
-//	connection->disable_sigint_handler(); /* TODO: fix it */
-
-	return (0);
-}
-
 
 uint64
 Context_Wrapper::_utp_accept(utp_callback_arguments *args)

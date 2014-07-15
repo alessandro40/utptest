@@ -27,10 +27,15 @@
 
 #define TIMEO_CHECK_INTERVAL	500000
 
+typedef struct msg {
+	struct timeval time;
+	int seq; } msg_t; 
+
 class Socket_Wrapper;
 class Context_Wrapper {
 	struct sockaddr_storage *salocal_p;
 	int write_size;
+	int seq = 0;
 
 	struct event_base *ev_base = NULL;
 	struct event *ev_read = NULL;
@@ -46,6 +51,7 @@ class Context_Wrapper {
 	/* utp callbacks */
 	static uint64 _utp_accept(utp_callback_arguments *);
 	static uint64 _utp_error(utp_callback_arguments *);
+	static uint64 _utp_log(utp_callback_arguments *);
 	static uint64 _utp_read(utp_callback_arguments *);
 	static uint64 _utp_sendto(utp_callback_arguments *);
 	static uint64 _utp_state_change(utp_callback_arguments *);
@@ -54,6 +60,7 @@ class Context_Wrapper {
 	static void _handle_read_event(int, short, void *);
 	static void _handle_write_event(int, short, void *);
 	static void _handle_timeo_event(int, short, void *);
+	static void _handle_ping_event(int, short, void *);
 	static void _handle_sigint_event(int, short, void *);
 
 //	std::function<void(int, short, void *)> _libevent_read;
@@ -74,4 +81,5 @@ class Context_Wrapper {
 	int fd = -1;
 	bool is_listener = false;
 	bool is_writable = false;
+	int last_seq = -5;
 };
