@@ -15,6 +15,13 @@ LOCAL_MODULE := myutp
 
 LOCAL_LDLIBS := -llog
 
+LOCAL_C_INCLUDES := \
+	libevent/ \
+	libevent/include/ \
+	libevent/android/
+
+LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%)
+
 LOCAL_SRC_FILES := \
 	    utp_context.cpp \
 	    utp_socket.cpp \
