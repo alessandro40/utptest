@@ -51,12 +51,7 @@ Context_Wrapper::_handle_write_event(int fd, short event, void *opaque)
 	Context_Wrapper *context_w = (Context_Wrapper *) opaque;
 	if (context_w->context_u == NULL)
 		return;
-//	if ((event & EV_WRITE) != 0 && !context_w->is_listener) {
-//		debug("handle_write");
-//		if (context_w->is_writable)
-//			context_w->_utp_write();
-//		else debug("UTP_socket not writable");
-//	}
+	context_w->is_writable = 1;
 }
 
 void
@@ -66,11 +61,6 @@ Context_Wrapper::_handle_ping_event(int fd, short event, void *opaque)
 	Context_Wrapper *context_w = (Context_Wrapper *) opaque;
 	if (context_w->is_writable)
 		context_w->_utp_write();
-
-	/* TODO: fix it */
-//	if (!context->is_listener && context->is_writable
-//	    && connection->sock != NULL)
-//		warnx("Goodput: %f Mbps", connection->get_goodput() / 1000000.0);
 }
 
 void
@@ -126,7 +116,7 @@ Context_Wrapper::Context_Wrapper(int version, struct sockaddr_storage
 	if (bind(this->fd, (struct sockaddr *) sin, sizeof(*sin)) < 0)
 		err(1, "bind() failed");
 
-        utp_context_set_userdata(this->context_u, (void *) this); /* Or &this? */
+        utp_context_set_userdata(this->context_u, (void *) this);
         utp_set_callback(this->context_u, UTP_ON_ACCEPT, &this->_utp_accept);
         utp_set_callback(this->context_u, UTP_ON_ERROR, &this->_utp_error);
 	utp_set_callback(this->context_u, UTP_LOG, &this->_utp_log);
@@ -245,9 +235,6 @@ Context_Wrapper::_utp_write(void)
 	ssize_t result = 0;
 	if (this->is_writable) {
 		msg_t msg;
-	//	buf = (msg_t *) malloc(sizeof(msg_t));
-	//	if (buf == NULL)
-	//		err(1, "malloc() failed");
 		gettimeofday(&msg.time, NULL);
 		msg.seq = this->seq;
 		this->seq++;
@@ -260,26 +247,6 @@ Context_Wrapper::_utp_write(void)
 	return (result);
 }
 
-//ssize_t
-//Context_Wrapper::_utp_write(void)
-//{
-//	ssize_t result = 0;
-//	if (this->is_writable) {
-//		char buf[this->write_size];
-//		memset(buf, 'A', this->write_size);
-//		/* TODO: where to write? */
-//		if (this->socket_tmp[0] != NULL)
-//			result = utp_write(this->socket_tmp[0], buf,
-//			    this->write_size); /*XXX*/
-//		if (this->socket_tmp[1] != NULL)
-//			result = utp_write(this->socket_tmp[1], buf,
-//			    this->write_size); /*XXX*/
-//
-//	}
-//	else debug("Socket non writable");
-//	return (result);
-//}
-//
 utp_context_stats *
 Context_Wrapper::get_stats()
 {
@@ -307,20 +274,9 @@ Context_Wrapper::_utp_read(utp_callback_arguments *args)
 	debug("Prev. Seq: %d", context_w->last_seq);
 	debug("Seq: %d", msg->seq);
 	if (context_w->last_seq != msg->seq - 1)
-		debug("Swap");
+		debug("Swapped");
 	context_w->last_seq = msg->seq;
-//	start_time_p = (struct timeval *) args->buf;
-// 	timersub(&end_time, start_time_p, &interval);
-//	debug("sec: %ld usec: %ld", interval.tv_sec, interval.tv_usec);
-//	debug("RTT: %ld",  /*1000000000 * interval.tv_sec +*/
-//	    interval.tv_usec);
-//	while(left) {
-//		len = write(STDOUT_FILENO, p, left);
-//		left -= len;
-//		p += len;
-//		debug("Wrote %ld bytes, %ld left", len, left);
-//	}
-//
+	
 	utp_read_drained(args->socket);
 	return (0);
 }
@@ -351,10 +307,6 @@ Context_Wrapper::_utp_accept(utp_callback_arguments *args)
 	debug("_utp_ accept cb");
 	if (args->socket == NULL)
 		errx(1, "utp_socket null");
-	/* 
-	 * TODO: does it have to do something? Maybe not, because the BSD socket
-	 * is already "controlled" 
-	 */
 
 	return (0);
 }
@@ -404,8 +356,6 @@ Context_Wrapper::_utp_state_change(utp_callback_arguments *args)
 		context_w->is_writable = 0;
 //		/* TODO: fix it */ connection->disable_sigint_handler();
 		socket_stats = utp_get_stats(socket_w->socket_u);
-		debug("%ld", socket_w->socket_u);
-		debug("%ld", socket_stats);
 		if (socket_stats) {	
 			printf("\nSocket Statistics:\n");
 			printf("    Bytes sent:          %lld\n",
